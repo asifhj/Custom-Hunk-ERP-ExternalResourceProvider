@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8" />
+<title>Custom Streaming ERP App - ESWiki</title>
+<meta name="generator" content="MediaWiki 1.17.0" />
+<link rel="alternate" type="application/x-wiki" title="Edit" href="/index.php?title=Streaming_ERP_Sample_App&amp;action=edit" />
+<link rel="edit" title="Edit" href="/index.php?title=Streaming_ERP_Sample_App&amp;action=edit" />
+<link rel="shortcut icon" href="" />
+<link rel="search" type="application/opensearchdescription+xml" href="/opensearch_desc.php" title="ESWiki (en)" />
+<link rel="EditURI" type="application/rsd+xml" href="http://eswiki.splunk.com/api.php?action=rsd" />
+<link rel="alternate" type="application/atom+xml" title="ESWiki Atom feed" href="/index.php?title=Special:RecentChanges&amp;feed=atom" />
+<link rel="stylesheet" href="/load.php?debug=false&amp;lang=en&amp;modules=mediawiki.legacy.commonPrint%2Cshared%7Cskins.vector&amp;only=styles&amp;skin=vector&amp;*" />
+<link rel="stylesheet" href="/extensions/HeaderTabs/skins-jquery/ext.headertabs.jquery-large.css" /><meta name="ResourceLoaderDynamicStyles" content="" /><link rel="stylesheet" href="/load.php?debug=false&amp;lang=en&amp;modules=site&amp;only=styles&amp;skin=vector&amp;*" />
+<link rel="stylesheet" href="/load.php?debug=false&amp;lang=en&amp;modules=site&amp;only=styles&amp;skin=vector&amp;*" />
+<link rel="stylesheet" href="/load.php?debug=false&amp;lang=en&amp;modules=site&amp;only=styles&amp;skin=vector&amp;*" />
+
+<!--[if lt IE 7]><style type="text/css">body{behavior:url("/skins/vector/csshover.min.htc")}</style><![endif]--></head>
+<body class="mediawiki ltr ns-0 ns-subject page-Streaming_ERP_Sample_App skin-vector">
+		<div id="mw-page-base" class="noprint"></div>
+		<div id="mw-head-base" class="noprint"></div>
+		<!-- content -->
+		<div id="content">
+			<a id="top"></a>
+			<div id="mw-js-message" style="display:none;"></div>
+						<!-- firstHeading -->
+			<h1 id="firstHeading" class="firstHeading">Custom Streaming ERP App</h1>
+			<!-- /firstHeading -->
+			<!-- bodyContent -->
+			<div id="bodyContent">
+				<!-- tagline -->
+				
+								<!-- bodytext -->
+				<table id="toc" class="toc"><tr><td><div id="toctitle"><h2>Contents</h2></div>
+<ul>
+<li class="toclevel-1 tocsection-1"><a href="#Overview"><span class="tocnumber">1</span> <span class="toctext">Overview</span></a></li>
+<li class="toclevel-1 tocsection-2"><a href="#Notes"><span class="tocnumber">2</span> <span class="toctext">Notes</span></a></li>
+<li class="toclevel-1 tocsection-3"><a href="#Gotchas.2FIssues"><span class="tocnumber">3</span> <span class="toctext">Gotchas/Issues</span></a></li>
+<li class="toclevel-1 tocsection-4"><a href="#Tutorial"><span class="tocnumber">4</span> <span class="toctext">Tutorial</span></a>
+<ul>
+<li class="toclevel-2 tocsection-5"><a href="#Why_create_a_streaming_ERP.3F"><span class="tocnumber">4.1</span> <span class="toctext">Why create a streaming ERP?</span></a></li>
+<li class="toclevel-2 tocsection-6"><a href="#What_do_you_need_to_do.3F"><span class="tocnumber">4.2</span> <span class="toctext">What do you need to do?</span></a>
+<ul>
+<li class="toclevel-3 tocsection-7"><a href="#indexes.conf"><span class="tocnumber">4.2.1</span> <span class="toctext">indexes.conf</span></a></li>
+<li class="toclevel-3 tocsection-8"><a href="#ERP_Implementation"><span class="tocnumber">4.2.2</span> <span class="toctext">ERP Implementation</span></a></li>
+<li class="toclevel-3 tocsection-9"><a href="#Output_from_your_ERP"><span class="tocnumber">4.2.3</span> <span class="toctext">Output from your ERP</span></a></li>
+<li class="toclevel-3 tocsection-10"><a href="#Logging"><span class="tocnumber">4.2.4</span> <span class="toctext">Logging</span></a></li>
+<li class="toclevel-3 tocsection-11"><a href="#Add_a_provider_family_to_show_splunk_how_to_run_your_ERP"><span class="tocnumber">4.2.5</span> <span class="toctext">Add a provider family to show splunk how to run your ERP</span></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</td></tr></table>
+<h1> <span class="mw-headline" id="Overview"> Overview </span></h1>
+
+<h1><span class="mw-headline" id="Notes"> Notes </span></h1>
+<ul><li> Any logging/debug should go to stderr - <a href="/VIX_ERP_protocol#Logging" title="VIX ERP protocol">VIX_ERP_protocol#Logging</a>.  Unless you have a log level specified as the first token in a line, the message will be logged at whatever the previous log level was. (This works great for things like stacktraces)
+</li><li> don't forget field.index and field.source are required fields in the header
+</li><li> you can turn on debug for your provider (set vix.splunk.search.debug = 1) to save a copy of the json which is passed into your ERP in the dispatch directory of your search.  ($SPLUNK_HOME/var/run/splunk/dispatch/&lt;your_sid&gt;/&lt;provider_name&gt;_vix.json)
+</li></ul>
+<h1><span class="mw-headline" id="Gotchas.2FIssues"> Gotchas/Issues </span></h1>
+<h1><span class="mw-headline" id="Tutorial"> Tutorial </span></h1>
+<h2><span class="mw-headline" id="Why_create_a_streaming_ERP.3F"> Why create a streaming ERP? </span></h2>
+<p>Let’s say you have some data which resides somewhere that is not easily indexable by splunk.  But you still want to be able to search and create reports with that data in splunk.  One way to do this, is to create your own streaming ERP.
+</p>
+<h2><span class="mw-headline" id="What_do_you_need_to_do.3F"> What do you need to do? </span></h2>
+<ol><li> Define provider in indexes.conf for your app
+</li><li> Define virtual index in the indexes.conf for your app
+</li><li> Write the ERP Implementation. Checkout the sample implementations in the Streaming ERP App
+</li><li> Specify the command line arguments for ERP implementation in indexes.conf
+</li></ol>
+<h4><span class="mw-headline" id="indexes.conf">  indexes.conf </span></h4>
+<p>1. provider family stanza 
+</p>
+<pre>
+[provider-family:provider_name]
+vix.mode = stream
+vix.command = [system command to run]
+vix.command.arg.1 = [command arg 1]
+vix.command.arg.2 = [command arg 2]
+...
+&lt;other configs shared by all providers in this family&gt;
+</pre>
+<p>2. provider stanza
+</p>
+<pre>
+# this is the provider stanza
+[provider:sample_erp]
+vix.family = provider_name
+...
+&lt;provider specific confs, eg db host/port etc&gt;
+</pre>
+<p>3. the virtual index stanza
+</p>
+<pre>
+[sample_vix]
+vix.provider = sample_erp
+...
+&lt;vix specific confs, eg path to data, or db table name&gt;
+</pre>
+<h3><span class="mw-headline" id="ERP_Implementation"> ERP Implementation </span></h3>
+<p>The json object passed to you will contain a <a href="/VIX_ERP_protocol#conf" title="VIX ERP protocol"> top level conf object</a> via STDIN with any configuration you specify for your provider and virtual index, in indexes.conf.  For instance, int the above stanzas from the sample app:
+</p><p><br />
+We're passing <code>data.path</code> for the sample_vix virtual index so it can be used by the executable to help process the external data which corresponds to the sample_vix virtual index.  Any additional configuration your executable needs can be prefixed with "vix" and added to either the provider stanza or a virtual index stanza.  The json object resulting from a search on sample_vix (ex. <code>index=sample_vix</code>) will look something like this:
+</p>
+<pre>
+{ &quot;action&quot;: &quot;search&quot;,
+  &quot;conf&quot;: {
+      &quot;indexes&quot;: [
+          {
+              &quot;data.path&quot;: &quot;$SPLUNK_HOME/etc/apps/streaming_erp_sample/logs&quot;, 
+               &quot;name&quot;: &quot;sample_vix&quot;, 
+               &quot;provider&quot;: &quot;sample_erp&quot;, 
+               &quot;search&quot;: &quot;search *&quot;, 
+               &quot;search_expr&quot;: {
+                   &quot;children&quot;: [], 
+                   &quot;op&quot;: &quot;AND&quot;, 
+                   &quot;type&quot;: &quot;group&quot;
+               }
+           }
+       ], 
+       &quot;provider&quot;: {
+           &quot;family&quot;: &quot;windbag&quot;, 
+           &quot;mode&quot;: &quot;stream&quot;, 
+           &quot;splunk.search.cache.read&quot;: &quot;0&quot;, 
+           &quot;splunk.search.debug&quot;: &quot;1&quot;, 
+           &quot;splunk.search.dispatch.path&quot;: &quot;/mnt/big/elin/inst/hunk/current/var/run/splunk/dispatch/1396467228.121&quot;, 
+           &quot;splunk.search.field.host&quot;: &quot;ronnie.sv.splunk.com&quot;, 
+           &quot;splunk.search.field.splunk_server&quot;: &quot;ronnie.sv.splunk.com&quot;, 
+           &quot;splunk.search.provider&quot;: &quot;sample_erp&quot;
+       }
+  }
+  ...
+}
+</pre>
+<p>Additional information about the search is passed in the json object which could be used to do filtering or pruning of data that you send from the ERP.  See <a href="/VIX_ERP_protocol#Request_details" title="VIX ERP protocol"> VIX ERP Protocol Request details</a> for more info.
+</p>
+<h3><span class="mw-headline" id="Output_from_your_ERP"> Output from your ERP </span></h3>
+<p>The ERP sends it output using Chunked Output Format via STDOUT <br />
+The chunked output format is as follows<br />
+</p>
+<pre>
+Chunked, &lt;Version&gt;, &lt;HEADER_LENGTH&gt;, &lt;BODY_LENGTH&gt; &lt;br&gt;
+Version&#160;: 1.0 &lt;br&gt;
+HEADER: json for header fields. It must  contains field.index , field.source, field.stream, field.host &lt;br&gt;
+BODY: Events &lt;br&gt;
+</pre>
+<pre>
+Header:
+field.index is extracted from the input json under conf.indexes[0].name &lt;br&gt;
+field.source is the source of events. In case of files, it is the filename &lt;br&gt;
+field.stream is set to &quot;raw&quot; &lt;br&gt;
+field.host is the hostname from where events are being generated &lt;br&gt;
+field.sourcetype is optional. It is deduced by splunk but can also be set to custom values &lt;br&gt;
+All the fields are seen on the left side pane of UI. &lt;br&gt;
+</pre>
+<pre>
+For the same channel (field.sourcetype,field.source,field.host) there is no need for header. &lt;br&gt;
+In that case the ChunkedOutputFormat looks like &lt;br&gt;
+Chunked, 1.0, 0, &lt;BODY_LENGTH&gt; &lt;br&gt;
+BODY: Events &lt;br&gt;
+</pre>
+<p>The Protocol is  implemented by ChunkedOutoutFormat.java in SplunkMR jar and sample_erp.py <br />
+</p><p>For additional details please refer to&#160;: <a href="/VIX_ERP_protocol#Summary" title="VIX ERP protocol">Chunked Output Format Additional info</a> <br />
+</p><p><br />
+</p>
+<h3><span class="mw-headline" id="Logging"> Logging </span></h3>
+<ul><li> logging -- writing to stderr will log into search.log.  
+</li></ul>
+<p>The Log message should include the LOG LEVEL as the first token in the message.
+<a href="/VIX_ERP_protocol#Logging" title="VIX ERP protocol">VIX_ERP_protocol#Logging</a> for more details.
+</p><p><br />
+</p>
+<h3><span class="mw-headline" id="Add_a_provider_family_to_show_splunk_how_to_run_your_ERP"> Add a provider family to show splunk how to run your ERP </span></h3>
+<ol><li> example python:
+</li></ol>
+<pre>
+[provider-family:provider_name]
+vix.mode = stream
+vix.command = $SPLUNK_HOME/bin/splunk
+vix.command.arg.1 = cmd
+vix.command.arg.2 = python
+vix.command.arg.3 = $SPLUNK_HOME/etc/apps/streaming_erp_sample/bin/sample_erp.py
+</pre>
+<p>So, in the above example, splunk will run <i>$SPLUNK_HOME/bin/splunk cmd python $SPLUNK_HOME/etc/apps/streaming_erp_sample/bin/sample_erp.py</i>  to start your ERP up and then send the json object to it via stdin
+</p>
+<ol><li> example java:
+</li></ol>
+<pre>
+[provider-family:provider_name_2]
+vix.mode = stream
+# Make Sure the java is path or give the complete path
+vix.command = java
+vix.command.arg.1 = -Xmx512m
+vix.command.arg.2 = -classpath 
+vix.commmand.arg.3 = $SPLUNK_HOME/bin/jars/SplunkMR-s6.0-h1.0.jar:$SPLUNK_HOME/etc/apps/streaming_erp_sample/bin/sample-erp-java.jar
+vix.command.arg.4 = com.splunk.erp.sample.ERPSample
+</pre>
+<p>So, in the above example, splunk will run <i>java -Xmx512m -classpath "$SPLUNK_HOME/bin/jars/SplunkMR-s6.0-h1.0.jar:$SPLUNK_HOME/etc/apps/streaming_erp_sample/bin/sample-erp-java.jar" com.splunk.erp.sample.ERPSample </i>  to start your ERP up and then send the json object to it via stdin
+The java should in the path or the complete path should be specified
+
+
+<!--******************-->
+<title>VIX ERP protocol - ESWiki</title>
+<meta name="generator" content="MediaWiki 1.17.0" />
+<link rel="alternate" type="application/x-wiki" title="Edit" href="/index.php?title=VIX_ERP_protocol&amp;action=edit" />
+<link rel="edit" title="Edit" href="/index.php?title=VIX_ERP_protocol&amp;action=edit" />
+<link rel="shortcut icon" href="" />
+<link rel="search" type="application/opensearchdescription+xml" href="/opensearch_desc.php" title="ESWiki (en)" />
+<link rel="EditURI" type="application/rsd+xml" href="http://eswiki.splunk.com/api.php?action=rsd" />
+<link rel="alternate" type="application/atom+xml" title="ESWiki Atom feed" href="/index.php?title=Special:RecentChanges&amp;feed=atom" />
+<link rel="stylesheet" href="/load.php?debug=false&amp;lang=en&amp;modules=mediawiki.legacy.commonPrint%2Cshared%7Cskins.vector&amp;only=styles&amp;skin=vector&amp;*" />
+<link rel="stylesheet" href="/extensions/HeaderTabs/skins-jquery/ext.headertabs.jquery-large.css" /><meta name="ResourceLoaderDynamicStyles" content="" /><link rel="stylesheet" href="/load.php?debug=false&amp;lang=en&amp;modules=site&amp;only=styles&amp;skin=vector&amp;*" />
+<link rel="stylesheet" href="/load.php?debug=false&amp;lang=en&amp;modules=site&amp;only=styles&amp;skin=vector&amp;*" />
+<link rel="stylesheet" href="/load.php?debug=false&amp;lang=en&amp;modules=site&amp;only=styles&amp;skin=vector&amp;*" />
+
+<!--[if lt IE 7]><style type="text/css">body{behavior:url("/skins/vector/csshover.min.htc")}</style><![endif]--></head>
+<body class="mediawiki ltr ns-0 ns-subject page-VIX_ERP_protocol skin-vector">
+		<div id="mw-page-base" class="noprint"></div>
+		<div id="mw-head-base" class="noprint"></div>
+		<!-- content -->
+		<div id="content">
+			<a id="top"></a>
+			<div id="mw-js-message" style="display:none;"></div>
+						<!-- firstHeading -->
+			<h1 id="firstHeading" class="firstHeading">VIX ERP protocol</h1>
+			<!-- /firstHeading -->
+			<!-- bodyContent -->
+			<div id="bodyContent">
+				
+				<!-- /jumpto -->
+								<!-- bodytext -->
+				<p>This document describes in detail the communication protocol between Splunk and External Result Provider (ERP). 
+</p>
+<table id="toc" class="toc"><tr><td><div id="toctitle"><h2>Contents</h2></div>
+<ul>
+<li class="toclevel-1 tocsection-1"><a href="#Links"><span class="tocnumber">1</span> <span class="toctext">Links</span></a></li>
+<li class="toclevel-1 tocsection-2"><a href="#Summary"><span class="tocnumber">2</span> <span class="toctext">Summary</span></a></li>
+<li class="toclevel-1 tocsection-3"><a href="#Request_details"><span class="tocnumber">3</span> <span class="toctext">Request details</span></a>
+<ul>
+<li class="toclevel-2 tocsection-4"><a href="#action"><span class="tocnumber">3.1</span> <span class="toctext">action</span></a></li>
+<li class="toclevel-2 tocsection-5"><a href="#conf"><span class="tocnumber">3.2</span> <span class="toctext">conf</span></a></li>
+<li class="toclevel-2 tocsection-6"><a href="#args"><span class="tocnumber">3.3</span> <span class="toctext">args</span></a></li>
+<li class="toclevel-2 tocsection-7"><a href="#search_pipeline"><span class="tocnumber">3.4</span> <span class="toctext">search_pipeline</span></a></li>
+<li class="toclevel-2 tocsection-8"><a href="#search_expr"><span class="tocnumber">3.5</span> <span class="toctext">search_expr</span></a></li>
+</ul>
+</li>
+<li class="toclevel-1 tocsection-9"><a href="#Response_details"><span class="tocnumber">4</span> <span class="toctext">Response details</span></a>
+<ul>
+<li class="toclevel-2 tocsection-10"><a href="#header_line"><span class="tocnumber">4.1</span> <span class="toctext">header line</span></a></li>
+<li class="toclevel-2 tocsection-11"><a href="#header"><span class="tocnumber">4.2</span> <span class="toctext">header</span></a></li>
+<li class="toclevel-2 tocsection-12"><a href="#chunk_body"><span class="tocnumber">4.3</span> <span class="toctext">chunk body</span></a></li>
+</ul>
+</li>
+<li class="toclevel-1 tocsection-13"><a href="#Logging"><span class="tocnumber">5</span> <span class="toctext">Logging</span></a></li>
+</ul>
+</td></tr></table>
+
+<h2> <span class="mw-headline" id="Summary"> Summary </span></h2>
+<p>At the highest level the communication protocol is a single request-response communication between Splunk and ERP. Note, that the ERP can return enormous amounts of data to Splunk using a chunked streaming protocol.
+</p><p>The <b>request</b> made by Splunk is a JSON blob that contains three top level objects, passed to the ERP via stdin
+</p>
+<pre>
+{
+&quot;action&quot;: [action asked of ERP]
+&quot;args&quot;: [action arguments]
+&quot;conf&quot;: [configurations coming from indexes.conf, augmented with runtime info]
+}
+</pre>
+<p>The <b>response</b> from the ERP is a chunked stream of data passed via stdout to Splunk. Each chunk of the stream should be formatted as follows:
+</p>
+<pre>
+&lt;header-line&gt;
+(&lt;header&gt;)*
+(&lt;body&gt;)*
+
+e.g.
+chunked 1.0, 123, 65535
+{ header in json}
+[64K of raw data]
+</pre>
+<h2> <span class="mw-headline" id="Request_details"> Request details </span></h2>
+<h3> <span class="mw-headline" id="action"> action </span></h3>
+<p>The table below summarizes the actions and which ERPs need to implement them:
+</p>
+<table class="wikitable">
+
+<tr>
+<th> Action </th>
+<th> ERP Type </th>
+<th> Comment
+</th></tr>
+<tr>
+<td> search </td>
+<td> all </td>
+<td> execute a search
+</td></tr>
+<tr>
+<td> searchpipe </td>
+<td> report </td>
+<td> execute a search pipeline whose first search command is <b>not</b> search, e.g. metadata, summarize etc
+</td></tr>
+<tr>
+<td> setup </td>
+<td> report </td>
+<td> perform any setup (currently not called by Splunk)
+</td></tr>
+<tr>
+<td> bundle-replication </td>
+<td> report </td>
+<td> perform bundle replication (currently not called by Splunk)
+</td></tr></table>
+<h3><span class="mw-headline" id="conf"> conf </span></h3>
+<p>The conf object is made up of two high level objects:
+</p>
+<table class="wikitable">
+
+<tr>
+<th> Object</th>
+<th> Comment
+</th></tr>
+<tr>
+<td> provider </td>
+<td> Conf from indexes.conf (layering of provider + family) + run time info required at the provider level
+</td></tr>
+<tr>
+<td> indexes </td>
+<td> list of indexes,(their conf + index level runtime info) which this ERP services that are references in the search
+</td></tr></table>
+<p>the following runtime attributes are added to provider object - it is important that the ERP annotate all the events with any fields passed down by splunk (ie all splunk.search.field.*)
+</p>
+<table class="wikitable">
+
+<tr>
+<th> Attribute </th>
+<th> Comment
+</th></tr>
+<tr>
+<td> splunk.search.bundle.path </td>
+<td> path to local bundle file to use for the search
+</td></tr>
+<tr>
+<td>splunk.search.dispatch.path </td>
+<td> path to dispatch directory for the search
+</td></tr>
+<tr>
+<td>splunk.search.field.splunk_server </td>
+<td> the server name of the search head
+</td></tr>
+<tr>
+<td>splunk.search.field.host </td>
+<td> the hostname of the search head
+</td></tr></table>
+<p>the following runtime attributes are added to the index object
+</p>
+<table class="wikitable">
+
+<tr>
+<th> Attribute </th>
+<th> Comment
+</th></tr>
+<tr>
+<td>search </td>
+<td>  the search pipeline, optimized for the given index
+</td></tr>
+<tr>
+<td>search_expr </td>
+<td> the parse tree of the optimized search expression (first search)
+</td></tr></table>
+<p>Example conf object:
+</p>
+<pre>
+  &quot;conf&quot;: {
+    &quot;provider&quot;: {
+      ####
+      ####  required fields that all providers get 
+      ####
+
+      &quot;family&quot;: &quot;hadoop&quot;,
+      &quot;mode&quot;: &quot;report&quot;,
+
+      ####
+      ####  conf variables resulting from layering of the provider stanza over the family stanza
+      ####
+      &quot;jobtracker.host&quot;: &quot;charlie.sv.splunk.com&quot;,
+      &quot;mapred.child.java.opts&quot;: &quot;-server -Xmx256m&quot;,
+      &quot;mapred.compress.map.output&quot;: &quot;true&quot;,
+      &quot;mapred.job.map.memory.mb&quot;: &quot;2048&quot;,
+
+      ####
+      ####  run time information needed at the provider level
+      ####
+      &quot;splunk.search.bundle.path&quot;: &quot;\/mnt\/big\/ledion\/inst\/si-staging\/var\/run\/ronnie-lbitincka-sistaging-1365489586.bundle&quot;,
+      &quot;splunk.search.dispatch.path&quot;: &quot;\/mnt\/big\/ledion\/inst\/si-staging\/var\/run\/splunk\/dispatch\/1366046905.18544&quot;,
+      &quot;splunk.search.field.splunk_server&quot;: &quot;ronnie-lbitincka-sistaging&quot;,
+      &quot;splunk.search.field.host&quot;: &quot;ronnie.sv.splunk.com&quot;
+    },
+
+    &quot;indexes&quot;: [
+      {
+      ####
+      ####  conf variables coming from this index's entry in indexes.conf
+      ####
+        &quot;name&quot;: &quot;hunk&quot;,
+        &quot;input.1.et.format&quot;: &quot;yyyyMMdd&quot;,
+        &quot;input.1.et.offset&quot;: &quot;0&quot;,
+        &quot;input.1.et.regex&quot;: &quot;\/home\/hunk\/ledion\/data\/splunk.com\/(\\d+)\/&quot;,
+        &quot;input.1.lt.format&quot;: &quot;yyyyMMdd&quot;,
+        &quot;input.1.lt.offset&quot;: &quot;86400&quot;,
+        &quot;input.1.lt.regex&quot;: &quot;\/home\/hunk\/ledion\/data\/splunk.com\/(\\d+)\/&quot;,
+        &quot;input.1.path&quot;: &quot;\/home\/hunk\/ledion\/data\/splunk.com\/${date_date}\/...&quot;,
+        &quot;provider&quot;: &quot;CDH420&quot;,
+        &quot;prune.partitions.search&quot;: &quot;true&quot;,
+        &quot;prune.partitions.time&quot;: &quot;true&quot;,
+
+      ####
+      ####  index level run time information
+      ####
+
+        &quot;search&quot;: &quot;search * | addinfo  type=count label=prereport_events | fields  keepcolorder=t \&quot;cvp_reserved_count\&quot; \&quot;status\&quot; | pretop  10 status&quot;,
+        &quot;search_expr&quot;: {
+          &quot;type&quot;: &quot;group&quot;,
+          &quot;op&quot;: &quot;AND&quot;,
+          &quot;children&quot;: [
+            
+          ]
+        }
+      }
+    ]
+  },
+</pre>
+<h3> <span class="mw-headline" id="args"> args </span></h3>
+<p>The arguments that are passed to the ERP are action dependent, since at the moment the only implemented action is search, we'll just cover the args of that action. One top level object is passed as part of the args, called "search" - in turn it contains the following top-level attributes:
+</p>
+<table class="wikitable">
+
+<tr>
+<th> Attribute </th>
+<th> Comment
+</th></tr>
+<tr>
+<td>mode </td>
+<td> the searching mode required of the ERP, can be one of: stream, mixed, report
+</td></tr>
+<tr>
+<td>debug </td>
+<td> boolean field that instructs the ERP to run in debug mode
+</td></tr>
+<tr>
+<td>info </td>
+<td> a list of objects representing the search info, ie the contents of info.csv, (see the example below for what fields get passed in as part of the info object)
+</td></tr>
+<tr>
+<td>required_fields </td>
+<td> a list of wildcard strings that represent the fields required by the search
+</td></tr>
+<tr>
+<td>search_pipeline </td>
+<td> the parsed search pipeline that the ERP is asked to execute. If the ERP can't handle the entire pipeline then it must set <b>report_postprocess_search</b> so that splunk can handle the remaining processing
+</td></tr></table>
+<p>Example 
+</p>
+<pre>
+  &quot;args&quot;: {
+    &quot;search&quot;: {
+      &quot;mode&quot;: &quot;mixed&quot;,
+      &quot;debug&quot;: true,
+      &quot;info&quot;: [
+        {
+          &quot;_auth_token&quot;: &quot;b66ec57f468c016fdbde3983b8f68f53&quot;,
+          &quot;_bundle_version&quot;: &quot;0&quot;,
+          &quot;_columnOrder&quot;: &quot;status count percent&quot;,
+          &quot;_countMap&quot;: &quot;duration.dispatch.evaluate;100;duration.dispatch.evaluate.search;74;duration.dispatch.evaluate.top;1;duration.dispatch.writeStatus;21;duration.startup.handoff;67;invocations.dispatch.evaluate;1;invocations.dispatch.evaluate.search;1;invocations.dispatch.evaluate.top;1;invocations.dispatch.writeStatus;2;invocations.startup.handoff;1;&quot;,
+          &quot;_drop_count&quot;: &quot;0&quot;,
+          &quot;_keySet&quot;: &quot;index::hunk&quot;,
+          &quot;_maxevents&quot;: &quot;0&quot;,
+          &quot;_ppc.app&quot;: &quot;search&quot;,
+          &quot;_ppc.bs&quot;: &quot;$SPLUNK_HOME\/etc&quot;,
+          &quot;_ppc.user&quot;: &quot;admin&quot;,
+          &quot;_query_finished&quot;: &quot;1&quot;,
+          &quot;_reduce_search&quot;: &quot;sitop  status&quot;,
+          &quot;_remote_search&quot;: &quot;search (index=hunk) | addinfo  type=count label=prereport_events | fields  keepcolorder=t \&quot;cvp_reserved_count\&quot; \&quot;status\&quot; | pretop  10 status&quot;,
+          &quot;_request_finalization&quot;: &quot;0&quot;,
+          &quot;_scan_count&quot;: &quot;0&quot;,
+          &quot;_search&quot;: &quot;search index=hunk | top status&quot;,
+          &quot;_shp_id&quot;: &quot;7C489594-F8E0-483C-B613-5E206C76697E&quot;,
+          &quot;_sid&quot;: &quot;1366046905.18544&quot;,
+          &quot;_splunkd_port&quot;: &quot;5001&quot;,
+          &quot;_splunkd_protocol&quot;: &quot;https&quot;,
+          &quot;_splunkd_uri&quot;: &quot;https:\/\/127.0.0.1:5001&quot;,
+          &quot;_timestamp&quot;: &quot;1366046906.002881000&quot;,
+          &quot;_tz_name&quot;: &quot;America\/Los_Angeles&quot;,
+          &quot;bm_bucket_seek_address&quot;: &quot;-1&quot;,
+          &quot;enable_event_stream&quot;: &quot;1&quot;,
+          &quot;generation_id&quot;: &quot;0&quot;,
+          &quot;internal_only&quot;: &quot;0&quot;,
+          &quot;is_batch_mode&quot;: &quot;0&quot;,
+          &quot;is_remote_sorted&quot;: &quot;0&quot;,
+          &quot;is_saved_search&quot;: &quot;0&quot;,
+          &quot;now&quot;: &quot;1366046905.000000000&quot;,
+          &quot;read_raw&quot;: &quot;1&quot;,
+          &quot;realtime&quot;: &quot;0&quot;,
+          &quot;rt_backfill&quot;: &quot;0&quot;,
+          &quot;summary_id&quot;: &quot;7C489594-F8E0-483C-B613-5E206C76697E_search_admin_706c6f4020343973&quot;,
+          &quot;summary_mode&quot;: &quot;none&quot;,
+          &quot;summary_stopped&quot;: &quot;0&quot;
+        }
+      ]
+    }
+  }
+</pre>
+<h3><span class="mw-headline" id="search_pipeline"> search_pipeline </span></h3>
+<p>The search process passes down a parsed version of the search pipeline - note that this is different from the search_expr - that it expects the ERP to return results for. A search pipeline is a list of search commands, generally the first search command is a "generating" search command which pulls records and pushes them down the pipeline, each search command is then responsible for processing the input records and outputting a processed set of records to be pushed onto the next command in the pipeline.
+</p><p>The following table shows the different types of nodes that are used to serialize the search pipeline
+</p><p><br />
+</p>
+<table class="wikitable">
+
+<tr>
+<th> type </th>
+<th> Comment
+</th></tr>
+<tr>
+<td> processor </td>
+<td> a search command
+</td></tr>
+<tr>
+<td> pipeline </td>
+<td> a search pipeline, e.g. a subsearch
+</td></tr>
+<tr>
+<td> option </td>
+<td> a search command option, e.g limit=123
+</td></tr>
+<tr>
+<td> literal </td>
+<td> a literal option, e.g. "foo bar"
+</td></tr></table>
+<p><br />
+type=processor 
+</p>
+<table class="wikitable">
+
+<tr>
+<th> field </th>
+<th> Comment
+</th></tr>
+<tr>
+<td> name </td>
+<td> the name of the search command
+</td></tr>
+<tr>
+<td> search_string </td>
+<td> the normalized search string for this command (anything after the command name)
+</td></tr>
+<tr>
+<td> args </td>
+<td> the arguments to the search command/processor
+</td></tr></table>
+<p>type=pipeline
+</p>
+<table class="wikitable">
+
+<tr>
+<th> field </th>
+<th> Comment
+</th></tr>
+<tr>
+<td> raw </td>
+<td> the raw string for the pipeline
+</td></tr>
+<tr>
+<td> value </td>
+<td> the list of commands that make up this pipeline
+</td></tr></table>
+<p>type=option
+</p>
+<table class="wikitable">
+
+<tr>
+<th> field </th>
+<th> Comment
+</th></tr>
+<tr>
+<td> raw </td>
+<td> the raw string for this option
+</td></tr>
+<tr>
+<td> name </td>
+<td> the name of the option
+</td></tr>
+<tr>
+<td> value </td>
+<td> the option value
+</td></tr></table>
+<p><br />
+type=literal
+</p>
+<table class="wikitable">
+
+<tr>
+<th> field </th>
+<th> Comment
+</th></tr>
+<tr>
+<td> raw </td>
+<td> the raw string for this literal
+</td></tr>
+<tr>
+<td> value </td>
+<td> the value of the literal
+</td></tr></table>
+<p><br />
+Example
+</p>
+<pre>
+search: litsearch index=local-csv | eval foobar=&quot;123&quot; | addinfo type=count label=prereport_events | fields keepcolorder=t &quot;prestats_reserved_*&quot; &quot;psrsvd_*&quot; | prestats count
+[
+  {
+    &quot;name&quot;: &quot;search&quot;,
+    &quot;type&quot;: &quot;processor&quot;,
+    &quot;search_string&quot;: &quot;( index=\&quot;local-csv\&quot; )&quot;,
+    &quot;args&quot;: [
+      {
+        &quot;type&quot;: &quot;literal&quot;,
+        &quot;value&quot;: &quot;( index=\&quot;local-csv\&quot; )&quot;,
+        &quot;raw&quot;: &quot;( index=\&quot;local-csv\&quot; )&quot;
+      }
+    ]
+  },
+  {
+    &quot;name&quot;: &quot;eval&quot;,
+    &quot;type&quot;: &quot;processor&quot;,
+    &quot;search_string&quot;: &quot; foobar=\&quot;123\&quot; &quot;,
+    &quot;args&quot;: [
+      {
+        &quot;type&quot;: &quot;option&quot;,
+        &quot;name&quot;: &quot;foobar&quot;,
+        &quot;value&quot;: &quot;\&quot;123\&quot; &quot;,
+        &quot;raw&quot;: &quot;foobar=\&quot;123\&quot; &quot;
+      }
+    ]
+  },
+  {
+    &quot;name&quot;: &quot;addinfo&quot;,
+    &quot;type&quot;: &quot;processor&quot;,
+    &quot;search_string&quot;: &quot; type=count label=prereport_events &quot;,
+    &quot;args&quot;: [
+      {
+        &quot;type&quot;: &quot;option&quot;,
+        &quot;name&quot;: &quot;type&quot;,
+        &quot;value&quot;: &quot;count&quot;,
+        &quot;raw&quot;: &quot;type=count&quot;
+      },
+      {
+        &quot;type&quot;: &quot;option&quot;,
+        &quot;name&quot;: &quot;label&quot;,
+        &quot;value&quot;: &quot;prereport_events&quot;,
+        &quot;raw&quot;: &quot;label=prereport_events&quot;
+      }
+    ]
+  },
+  {
+    &quot;name&quot;: &quot;fields&quot;,
+    &quot;type&quot;: &quot;processor&quot;,
+    &quot;search_string&quot;: &quot; keepcolorder=t \&quot;prestats_reserved_*\&quot; \&quot;psrsvd_*\&quot; &quot;,
+    &quot;args&quot;: [
+      {
+        &quot;type&quot;: &quot;option&quot;,
+        &quot;name&quot;: &quot;keepcolorder&quot;,
+        &quot;value&quot;: &quot;t&quot;,
+        &quot;raw&quot;: &quot;keepcolorder=t&quot;
+      },
+      {
+        &quot;type&quot;: &quot;literal&quot;,
+        &quot;value&quot;: &quot;prestats_reserved_*&quot;,
+        &quot;raw&quot;: &quot;\&quot;prestats_reserved_*\&quot;&quot;
+      },
+      {
+        &quot;type&quot;: &quot;literal&quot;,
+        &quot;value&quot;: &quot;psrsvd_*&quot;,
+        &quot;raw&quot;: &quot;\&quot;psrsvd_*\&quot;&quot;
+      }
+    ]
+  },
+  {
+    &quot;name&quot;: &quot;prestats&quot;,
+    &quot;type&quot;: &quot;processor&quot;,
+    &quot;search_string&quot;: &quot; count&quot;,
+    &quot;args&quot;: [
+      {
+        &quot;type&quot;: &quot;literal&quot;,
+        &quot;value&quot;: &quot;count&quot;,
+        &quot;raw&quot;: &quot;count&quot;
+      }
+    ]
+  }
+]
+</pre>
+<h3> <span class="mw-headline" id="search_expr"> search_expr </span></h3>
+<p>The search processes passes down a parsed tree of the search expression when calling out the ERP. There are two types of nodes in the tree: intermediary nodes and leaf nodes (see below). Intermediary nodes represent conjunction/disjunctions of other intermediary nodes or leaves. All negation information is passed down to the leaves. 
+</p><p>This table shows the different kinds of nodes which can be distinguished by the value of the "type" field
+</p>
+<table class="wikitable">
+
+<tr>
+<th> type </th>
+<th> Comment
+</th></tr>
+<tr>
+<td> group </td>
+<td> Intermediary node, represents a conjunction/disjunction of other nodes
+</td></tr>
+<tr>
+<td> term </td>
+<td> Leaf node, represents a simple term in the search, could be wildcarded, e.g. fooba*
+</td></tr>
+<tr>
+<td> phrase </td>
+<td> Leaf node, represents a phrase in the search, e.g. "this is a phrase"
+</td></tr>
+<tr>
+<td> cmp </td>
+<td> Leaf node, represents a field value comparison, e.g. foo="123 pho"
+</td></tr></table>
+<p>The tables below  document the fields present in each type of node (the "type" field is omitted) 
+</p><p>type=group
+</p>
+<table class="wikitable">
+
+<tr>
+<th> field </th>
+<th> Comment
+</th></tr>
+<tr>
+<td> op </td>
+<td> the operation type, valid values are: AND, OR
+</td></tr>
+<tr>
+<td> children </td>
+<td> list of nodes whose values need to be AND-ed/OR-ed
+</td></tr></table>
+<p>Note there are two special group node objects: match all {op=AND, children=[]}, match none {op=OR, children=[]}
+</p><p>type=term
+</p>
+<table class="wikitable">
+
+<tr>
+<th> field </th>
+<th> Example </th>
+<th> Comment
+</th></tr>
+<tr>
+<td> value </td>
+<td> foo* </td>
+<td> the value of this term node, note that this can be wildcarded
+</td></tr>
+<tr>
+<td> is_negated </td>
+<td> true </td>
+<td> whether the value of this node is to be negated (ie NOT foo*)
+</td></tr>
+<tr>
+<td> is_literal_term </td>
+<td> false </td>
+<td> whether the TERM directive was used for this node [e.g TERM(foo bar)]
+</td></tr>
+<tr>
+<td> is_case_sensitive </td>
+<td> true </td>
+<td> whether the term match is case sensitive, [e.g CASE(fooBAR)]
+</td></tr></table>
+<p><br />
+type=phrase
+</p>
+<table class="wikitable">
+
+<tr>
+<th> field </th>
+<th> Example </th>
+<th> Comment
+</th></tr>
+<tr>
+<td> value </td>
+<td> "foo bar" </td>
+<td> the value of this phrase node, note that this can be wildcarded
+</td></tr>
+<tr>
+<td> is_negated </td>
+<td> true </td>
+<td> whether the value of this node is to be negated (ie NOT "foo bar")
+</td></tr>
+<tr>
+<td> is_literal_term </td>
+<td> false </td>
+<td> whether the TERM directive was used for this node [e.g TERM(foo bar)]
+</td></tr>
+<tr>
+<td> is_case_sensitive </td>
+<td> true </td>
+<td> whether the phrase match is case sensitive, [e.g CASE(foo BAR)]
+</td></tr>
+<tr>
+<td> regex </td>
+<td> "(?&lt;![a-z0-9])foo bar(?![a-z0-9])" </td>
+<td> regex that should match (using find/search) _raw
+</td></tr>
+<tr>
+<td> parts </td>
+<td> ["foo", "bar"] </td>
+<td> list of tokens that must be found in _raw in order for the phrase to match
+</td></tr></table>
+<p><br />
+type=cmp 
+</p>
+<table class="wikitable">
+
+<tr>
+<th> field </th>
+<th> Example </th>
+<th> Comment
+</th></tr>
+<tr>
+<td> lhs </td>
+<td> field </td>
+<td> the left hand side of the comparison, ie the field name
+</td></tr>
+<tr>
+<td> rhs </td>
+<td> "foo bar" </td>
+<td> the right hand side of the comaprison, ie the field value
+</td></tr>
+<tr>
+<td> op </td>
+<td> = </td>
+<td> the comparator to use between the field and value
+</td></tr>
+<tr>
+<td> is_negated </td>
+<td> true </td>
+<td> whether the value of this node is to be negated (ie NOT foo="foo bar")
+</td></tr>
+<tr>
+<td> is_numeric </td>
+<td> false </td>
+<td> whether the comparison is a numeric or lexicographic comparison
+</td></tr>
+<tr>
+<td> is_cidr_match </td>
+<td> false </td>
+<td> whether CIDR matching is supposed to be done, this is used to match ip ranges, eg ip=1.2.3.0/24
+</td></tr>
+<tr>
+<td> is_literal_term </td>
+<td> false </td>
+<td> currently always set to false for comparisons
+</td></tr>
+<tr>
+<td> is_case_sensitive </td>
+<td> false</td>
+<td> currently always set to false for comparisons
+</td></tr>
+<tr>
+<td> parts </td>
+<td> ["foo", "bar"] </td>
+<td> list of tokens that must be found in the field value, set only if rhs is a phrase
+</td></tr></table>
+<h2> <span class="mw-headline" id="Response_details"> Response details </span></h2>
+<h3><span class="mw-headline" id="header_line"> header line </span></h3>
+<p>The chunk's header line contains basic information about the chunk, including: chunked encoding version, the size of the header and content
+</p>
+<pre>
+Format:
+chunked 1.0,&lt;header-size&gt;,&lt;body-size&gt;
+
+Example:
+chunked 1.0,1024,65535 
+{“stream_type”: “raw”, “some”: “header-stuff like”, “field.source”: “/foo/bar/baz.log”  …… }
+[raw 64K payload body, some of it’s properties can be described in the header] 
+</pre>
+<h3><span class="mw-headline" id="header"> header </span></h3>
+<p>This section will describe the details of the contents of the header object passed as part of the response to a search. The header section needs to be provided only once per data channel (host, source, sourcetype) - any chunks without a header continue to use the previously defined header.
+</p><p>The following attributes are effective on all stream_type responses:
+</p>
+<table class="wikitable">
+
+<tr>
+<th> Attribute </th>
+<th> Type </th>
+<th> Comment
+</th></tr>
+<tr>
+<td>version</td>
+<td> int </td>
+<td> the communication protocol version, must set to 1
+</td></tr>
+<tr>
+<td>stream_type</td>
+<td> string </td>
+<td> accepted values are: "raw", "events" and any string that starts with "report"
+</td></tr>
+<tr>
+<td>stream_id</td>
+<td> string </td>
+<td> optional, required whenever you expect to send headers to search process mid stream (eg. messages, metrics etc)
+</td></tr>
+<tr>
+<td> finalize_search </td>
+<td> boolean </td>
+<td> whether the search process should be finalized, used when a fatal error has occurred and you want the search to stop
+</td></tr>
+<tr>
+<td> process_events </td>
+<td> boolean </td>
+<td> effective only if stream_type=events, controls whether search time processing (kv, field aliasing, calculated fields, lookups, eventtyping, tagging and _time based filtering) will be applied to the events. Defaults to true if not specified. Set this to false if your ERP is returning fully cooked events that fall within the search's timerange.
+</td></tr>
+<tr>
+<td> report_postprocess_search </td>
+<td> string </td>
+<td> a search pipeline to feed the results of stream_type=report before returning that data to the search processes. Can only be set once, silently ignored on subsequent headers. Can be used as a means of negotiating how much of the remote_search work is handled by the ERP with the rest being handled by Splunk
+</td></tr>
+<tr>
+<td>message.&lt;id&gt;.&lt;level&gt; </td>
+<td> string </td>
+<td> a message to add to the search, id is just a number used to identify messages, while level specifies the message level and can be one of: DEBUG, INFO, WARN, ERROR, FATAL
+</td></tr>
+<tr>
+<td> metric.&lt;name&gt; </td>
+<td> string </td>
+<td> metrics to be added to the job inspector. Format: &lt;elapsed_ms&gt;,&lt;invocations&gt;
+</td></tr>
+<tr>
+<td> link.&lt;name&gt; </td>
+<td> string </td>
+<td> a link to be added to the job inspector
+</td></tr>
+<tr>
+<td> count_metric.&lt;name&gt; </td>
+<td> string </td>
+<td> metrics to be added to the job inspector. Format: &lt;input count&gt;,&lt;output count&gt;
+</td></tr></table>
+<p>The following attributes are effective <b>only</b> when stream_type is set to "raw" or "events"
+</p>
+<table class="wikitable">
+
+<tr>
+<th> Attribute </th>
+<th> Type </th>
+<th> Comment
+</th></tr>
+<tr>
+<td>field.index </td>
+<td> string </td>
+<td> (required) the index which the data in the stream belongs to
+</td></tr>
+<tr>
+<td>field.source </td>
+<td> string </td>
+<td> (required) the source of the data
+</td></tr>
+<tr>
+<td>field.sourcetype </td>
+<td> string </td>
+<td> (highly recommended) the sourcetype of the data, if not given it would be looked up in props.conf using the source
+</td></tr>
+<tr>
+<td>field.host</td>
+<td> string </td>
+<td> (highly recommended) the host of the data
+</td></tr>
+<tr>
+<td>field.&lt;name&gt; </td>
+<td> string </td>
+<td> specify a field to be added to every event in the rest of the stream
+</td></tr>
+<tr>
+<td>props.&lt;name&gt; </td>
+<td> string </td>
+<td> specify any index time props.conf attributes to apply to the data. Note that as of the writing of this doc (4/13) <b>only index time</b> props.conf entries are supported. If this Jira SPL-64758 is resolved then we most likely support search time props.conf entries too.
+</td></tr></table>
+<h3><span class="mw-headline" id="chunk_body"> chunk body </span></h3>
+<p>The body of a chunk contains the raw payload which is processed based on stream_type:
+</p>
+<table class="wikitable">
+
+<tr>
+<th> stream_type </th>
+<th> Processing
+</th></tr>
+<tr>
+<td> raw </td>
+<td> pass body content through the index time pipeline to generate events, then pass those events through the search time processing (kv, lookups etc) and the rest of the search pipeline
+</td></tr>
+<tr>
+<td> events </td>
+<td> assumes body contains properly formatted events. These events will be passed through the search processing (kv, lookups etc) and then through the rest of the search pipeline
+</td></tr>
+<tr>
+<td> report </td>
+<td> assume body contains properly formatted pre-report data and feed them through the reduce pipeline
+</td></tr></table>
+<p><br />
+For both, "events" and "report" stream types the format of the results returned to the search (ie the body of the chunk) is expected to be in the inter-splunk, chunked csv format. See Intersplunk.py, outputStreamResults() for more details on how this format is implemented.
+</p><p>Note that an event in Splunk has a few basic fields which are highly recommended to be present
+</p>
+<table class="wikitable">
+
+<tr>
+<th> Field </th>
+<th> Example </th>
+<th> Comment
+</th></tr>
+<tr>
+<td> _time </td>
+<td> 1234567890.123 </td>
+<td> The time when the event occurred
+</td></tr>
+<tr>
+<td> _raw </td>
+<td> text of event </td>
+<td> The actual raw text of the event, this is what will be used to pass through kv etc
+</td></tr>
+<tr>
+<td> index </td>
+<td> main </td>
+<td> The index where the event lives
+</td></tr>
+<tr>
+<td> source </td>
+<td> tcp </td>
+<td> The source of the event, will be used to find props/transforms to apply to the event
+</td></tr>
+<tr>
+<td> sourcetype </td>
+<td> tcp </td>
+<td> The sourcetype of the event, will be used to find props/transforms to apply to the event
+</td></tr>
+<tr>
+<td> host </td>
+<td> awesome.example.com </td>
+<td> The host that generated the event, will be used to find props/transforms to apply to the event
+</td></tr></table>
+<p>The minimum required set is: [_time, _raw, index, (one of source/sourcetype/host)]
+</p>
+<h2><span class="mw-headline" id="Logging"> Logging </span></h2>
+<p>The content of the ERP's stderr will be logged to search.log of the search process. By default the log level is set to "ERROR", however if the log lines sent by your process start with: DEBUG, INFO, WARN, ERROR, FATAL then the messages (lines) will be logged at the appropriate level (the search process will add the timestamp so no need to add it as part of the message). Currently multiline logging is poorly supported, each line becomes a separate log line in search.log so for the time being avoid multiline logging. 
+</p><p>Example of how log lines would appear in search.log
+</p>
+<pre>
+08-12-2013 15:57:25.812 INFO  ERP.charlie -  JobSubmitter - JobId=job_201308082345_0039, Map: 0.00%, Reduce: 0.00%
+08-12-2013 15:57:26.590 WARN  ERP.charlie -  SplunkMR$SplunkBaseMapper - Could not create preprocessor object, will try the next one ... class=com.splunk.mr.input.ValueAvroRecordReader, message=File path does 
+</pre>
+<p><br />
+If you need to collect "remote" logs similarly to how we do for searches running in a distributed Splunk environment then you can also collect and write those logs directly into: &lt;dispatch_dir&gt;/&lt;sid&gt;remote_logs/ using the following file naming convention: erp_&lt;ERP-NAME&gt;_&lt;SOMETHING&gt;.search.log - these files will then be eligible to be show in the job inspector where users will be able to view them without console access.
+</p><p>Example:
+</p>
+<pre>
+[lbitincka@ronnie 1376348226.42]$ ls -lah remote_logs/
+total 428K
+-rw------- 1 lbitincka 1125  16K Aug 12 15:57 erp_charlie_splunk.search.log
+-rw------- 1 lbitincka 1125 402K Aug 12 15:57 erp_charlie_tasks.search.log
+</pre>
+
+
+
+	</body>
+</html>
